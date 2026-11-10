@@ -1,0 +1,13 @@
+[project]
+name = "firesystem-backend"
+version = "0.1.0"
+description = "NASA Hackaton"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.162.2",
+]
+
+
+[tool.fastapi]
+entrypoint = "src.main:app"
