@@ -1,0 +1,5 @@
+name: fire
+variables:
+  - name: HOST
+    value: http://localhost:5000
+    description: l
