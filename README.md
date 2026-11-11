@@ -39,6 +39,16 @@ uv run fastapi run
 
 The FastAPI entry point is configured in `pyproject.toml` as `src.main:app`.
 
+## Run tests
+
+The project uses [pytest](https://docs.pytest.org/) for tests. Run the test suite from the project root with:
+
+```bash
+uv run pytest
+```
+
+Tests are stored in the `test/` directory.
+
 ## Add dependencies
 
 Add a runtime dependency with:
