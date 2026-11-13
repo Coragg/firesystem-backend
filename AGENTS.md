@@ -1,6 +1,6 @@
 # Project Overview
 
-FireSystem Backend is a Python API for the FireSystem project. It currently exposes a small FastAPI service and is managed with `uv`.
+FireSystem Backend is the API for a project created for NASA Space Apps Challenge 2026's [Harmonization of MODIS and VIIRS Hot Spots](https://www.spaceappschallenge.org/2026/challenges/modis-and-viirs-hot-spots/) challenge. The project aims to harmonize active fire hotspot records from the MODIS and VIIRS satellite sensors into a burning activity calendar, helping users explore historical fire patterns and identify unusual conditions and critical periods for a selected area. This repository contains the Python **FastAPI** backend that supports that web application and is managed with `uv`.
 
 ## Tech Stack
 
@@ -62,10 +62,17 @@ The FastAPI entry point is `src.main:app`. The development server defaults to `h
 - Keep dependencies declared through `uv` so `pyproject.toml` and `uv.lock` stay in sync.
 - Read configuration from environment variables; do not commit secrets or real credentials.
 
-## Restrictions — DO NOT
+## Git Rules
 
+- Review `git status` and the relevant diff before making or summarizing repository changes.
+- Preserve unrelated user changes; do not discard or overwrite them.
 - Do not run `git push`.
 - Do not run `git commit` unless the user confirms.
+- Do not rewrite Git history or run destructive Git commands unless the user explicitly requests it.
+
+## Agent Rules
+
+- **Plan format:** When asked for a plan, ALWAYS follow the structure defined in `.agent/rules/plan_structure.md`.
 
 ## Additional Context
 
