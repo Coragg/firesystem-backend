@@ -1,0 +1,57 @@
+info:
+  name: calendar
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{HOST}}/api/v1/calendar"
+  body:
+    type: json
+    data: |-
+      {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [[[-73.2, -37.9], [-71.5, -37.9], [-71.5, -36.5], [-73.2, -36.5], [-73.2, -37.9]]]
+        },
+        "start": "2001-01",
+        "end": "2026-11"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Harmonized fire calendar for an area
+
+  Returns hotspot activity by year and month for the area, with what is normal for each month. The example area is the Biobio region.
+
+  ## Body
+
+  - `aoi` (required): GeoJSON `Polygon`, coordinates as `[lon, lat]`, at most 1000 vertices. An open ring is closed automatically.
+  - `start`, `end` (optional): `YYYY-MM`. Default `2001-01` up to the current month.
+  - `baseline_from`, `baseline_to` (optional): years used to compute what is normal. Default `2001` up to last year.
+
+  ## Response
+
+  - `data.years`: one entry per year with `months` (12 values; `null` for months outside the range or in the future) and `flags` per month (`estimated`, `filled`, `provisional`).
+  - `data.monthly`: median, `p25`, `p75` and `critical` for each calendar month.
+  - `data.current`: this month so far against the same days of earlier years (`level` is `below`, `normal`, `above` or `no_baseline`).
+  - `data.kpis`: peak month and year, and last full year against its median.
+  - `meta.warnings` may include `AOI_OUTSIDE_COVERAGE`, `RANGE_CLIPPED`, `BASELINE_TOO_SHORT`, `DATA_STALE` and `CALIBRATION_MISSING`.
+
+  ## What to expect
+
+  - Before any load: every month is `0.0`, with the warning `DATA_STALE`.
+  - With only MODIS loaded, `CALIBRATION_MISSING` is normal until the scale factors exist.
+  - An area outside Chile answers `200` with zeros and `AOI_OUTSIDE_COVERAGE`.
+
+  ## Errors
+
+  - `422` `{"detail": "...GeoJSON uses [lon, lat]."}` when the coordinates look swapped (latitude first).
+  - `422` with a `detail` list when the body is not valid (open polygon, more than 1000 vertices, bad date, `start` after `end`).
+  - `503` when Supabase cannot be reached.

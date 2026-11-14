@@ -52,12 +52,24 @@ def _describe(exc: Exception) -> str:
 
 
 def refresh_sources(client: Client, http: httpx.Client, sleep: Callable[[float], None]) -> None:
+    """Create or update a firms_source row for every known product FIRMS lists, with its date range."""
     now = datetime.now(UTC).isoformat()
-    for row in fetch_availability(http, sleep):
-        if row["data_id"] in KNOWN_SOURCES:
-            client.table("firms_source").update(
-                {"min_date": row["min_date"], "max_date": row["max_date"], "checked_at": now}
-            ).eq("code", row["data_id"]).execute()
+    rows = [
+        {
+            "code": row["data_id"],
+            "instrument": "MODIS" if row["data_id"].startswith("MODIS") else "VIIRS",
+            "kind": "SP" if row["data_id"].endswith("_SP") else "NRT",
+            "min_date": row["min_date"],
+            "max_date": row["max_date"],
+            "checked_at": now,
+        }
+        for row in fetch_availability(http, sleep)
+        if row["data_id"] in KNOWN_SOURCES
+    ]
+    if not rows:
+        # Without source rows every later step would quietly load nothing.
+        raise FirmsResponseError("FIRMS did not list any known product (is the map key valid?)")
+    client.table("firms_source").upsert(rows, on_conflict="code").execute()
 
 
 def already_loaded(client: Client, source: str, area: str, start: date, end: date) -> bool:

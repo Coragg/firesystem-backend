@@ -5,6 +5,7 @@ import pytest
 from fakes import FakeClient
 
 from src.ingest import run
+from src.ingest.normalize import FirmsResponseError
 from src.utils import firms as firms_util
 
 TODAY = date(2026, 11, 14)
@@ -129,6 +130,38 @@ def test_backfill_with_a_failed_chunk_does_not_delete_or_rebuild():
 
     assert code == 1
     assert client.calls == []  # replacing NRT with a hole in SP would lose data
+
+
+def upserts_to(client: FakeClient, table: str) -> list[tuple]:
+    return [ops[0] for name, ops in client.executed if name == table and ops[0][0] == "upsert"]
+
+
+def test_refresh_creates_firms_source_rows_for_known_products_only():
+    client = FakeClient(tables={"firms_source": NRT_SOURCES, "ingest_batch": batches()})
+    availability = AVAILABILITY + "LANDSAT_NRT,2022-06-20,2026-11-14\nMODIS_SP,2000-11-01,2026-08-31\n"
+    http, _ = http_client(availability=availability)
+
+    run.daily(client, http, TODAY, sleep=lambda _s: None)
+
+    (_, args, kwargs), = upserts_to(client, "firms_source")
+    rows = {row["code"]: row for row in args[0]}
+    assert kwargs == {"on_conflict": "code"}
+    assert set(rows) == {"VIIRS_NOAA20_NRT", "VIIRS_SNPP_NRT", "MODIS_SP"}
+    assert (rows["MODIS_SP"]["instrument"], rows["MODIS_SP"]["kind"]) == ("MODIS", "SP")
+    assert (rows["VIIRS_NOAA20_NRT"]["instrument"], rows["VIIRS_NOAA20_NRT"]["kind"]) == ("VIIRS", "NRT")
+    assert rows["VIIRS_NOAA20_NRT"]["max_date"] == "2026-11-14"
+    assert rows["MODIS_SP"]["checked_at"]
+
+
+@pytest.mark.parametrize("availability", ["Invalid MAP_KEY.", "data_id,min_date,max_date\nLANDSAT_NRT,2022-06-20,2026-11-14\n"])
+def test_refresh_without_known_products_stops_instead_of_loading_nothing(availability):
+    client = FakeClient(tables={"firms_source": NRT_SOURCES, "ingest_batch": batches()})
+    http, urls = http_client(availability=availability)
+
+    with pytest.raises(FirmsResponseError):
+        run.daily(client, http, TODAY, sleep=lambda _s: None)
+
+    assert [u for u in urls if "data_availability" not in u] == []
 
 
 def test_backfill_limits_range_and_source():

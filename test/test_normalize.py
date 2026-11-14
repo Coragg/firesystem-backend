@@ -38,6 +38,9 @@ def test_modis_sp_row():
     assert row["brightness_2"] == 290.7
     assert row["fire_type"] == 0
     assert row["lat"] == -22.6891
+    # 01:06 UTC at longitude -61.59 is 20:59 the evening before, local solar time.
+    assert row["solar_date"] == "2025-08-31"
+    assert (row["cell_x"], row["cell_y"]) == (-1232, -454)
 
 
 def test_modis_nrt_row_without_type_pads_time():
@@ -46,6 +49,7 @@ def test_modis_nrt_row_without_type_pads_time():
     assert row["acq_time"] == "2026-11-13T00:20:00+00:00"
     assert row["fire_type"] is None
     assert row["version"] == "6.1NRT"
+    assert row["solar_date"] == "2026-11-12"
 
 
 def test_viirs_snpp_row_uses_ti4_ti5():
@@ -55,6 +59,8 @@ def test_viirs_snpp_row_uses_ti4_ti5():
     assert row["confidence_level"] == 1
     assert row["brightness"] == 311.74
     assert row["brightness_2"] == 289.58
+    assert row["solar_date"] == "2025-09-01"
+    assert (row["cell_x"], row["cell_y"]) == (-1178, -362)
 
 
 @pytest.mark.parametrize("raw, level", [("0", 0), ("29", 0), ("30", 1), ("79", 1), ("80", 2), ("100", 2)])
@@ -68,7 +74,11 @@ def test_viirs_confidence_letters(raw, level):
 
 
 @pytest.mark.parametrize(
-    "changes", [{"latitude": "abc"}, {"satellite": "Landsat"}, {"acq_time": "2400"}, {"confidence": "x"}]
+    "changes",
+    [
+        {"latitude": "abc"}, {"satellite": "Landsat"}, {"acq_time": "2400"}, {"confidence": "x"},
+        {"latitude": "95.0"}, {"longitude": "-181.0"},  # would fail the database CHECK and abort a whole batch
+    ],
 )
 def test_broken_row_returns_none(changes):
     assert normalize_row({**MODIS_SP, **changes}, "MODIS_SP") is None

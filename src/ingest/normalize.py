@@ -1,9 +1,11 @@
 import csv
 import io
-from datetime import UTC, datetime
+import math
+from datetime import UTC, datetime, timedelta
 from typing import TypedDict
 
 SATELLITE_IDS = {"N": 1, "N20": 2, "N21": 3, "Aqua": 4, "Terra": 5}
+CELL_DEGREES = 0.05  # the grid every summary and the calendar use (about 5 km)
 VIIRS_CONFIDENCE = {"l": 0, "n": 1, "h": 2}
 
 
@@ -15,8 +17,11 @@ class Detection(TypedDict):
     satellite_id: int
     source_code: str
     acq_time: str
+    solar_date: str
     lat: float
     lon: float
+    cell_x: int
+    cell_y: int
     confidence_level: int
     confidence_raw: str
     brightness: float | None
@@ -50,12 +55,19 @@ def normalize_row(row: dict[str, str], source_code: str) -> Detection | None:
         )
         is_modis = row["instrument"] == "MODIS"
         fire_type = row.get("type")
+        lat, lon = float(row["latitude"]), float(row["longitude"])
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError("coordinates out of range")  # the database would reject the whole batch
         return Detection(
             satellite_id=SATELLITE_IDS[row["satellite"]],
             source_code=source_code,
             acq_time=acquired.isoformat(),
-            lat=float(row["latitude"]),
-            lon=float(row["longitude"]),
+            # Local solar day: the sun moves 15 degrees of longitude per hour.
+            solar_date=(acquired + timedelta(hours=lon / 15)).date().isoformat(),
+            lat=lat,
+            lon=lon,
+            cell_x=math.floor(lon / CELL_DEGREES),
+            cell_y=math.floor(lat / CELL_DEGREES),
             confidence_level=_confidence_level(row["confidence"]),
             confidence_raw=row["confidence"],
             brightness=_float(row.get("brightness" if is_modis else "bright_ti4")),
