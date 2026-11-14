@@ -2,10 +2,10 @@ import logging
 from datetime import date, datetime
 
 import httpx
+from fastapi import HTTPException
 from postgrest.exceptions import APIError
 from supabase import Client
 
-from src.utils.errors import DataStoreUnavailable
 from src.utils.harmonize import CountRow
 
 logger = logging.getLogger("firesystem")
@@ -16,7 +16,9 @@ def run(query) -> list[dict]:
     try:
         return query.execute().data
     except httpx.TransportError as exc:
-        raise DataStoreUnavailable() from exc
+        raise HTTPException(
+            status_code=503, detail="The data store is not responding. Try again in a few minutes."
+        ) from exc
     except APIError as exc:
         logger.error("supabase query failed code=%s", exc.code)
         raise

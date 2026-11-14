@@ -28,7 +28,7 @@ def body(start: str = "2026-11-01", end: str = "2026-11-14", **extra) -> dict:
 def test_hotspots_page_maps_rows_and_next_cursor(use_fake_db):
     use_fake_db(FakeClient(rpcs={"hotspots_page": [row(7), row(9, confidence_level=0, source_kind="SP", excluded=True)]}))
 
-    data = client.post("/v1/hotspots", json=body(limit=2)).json()["data"]
+    data = client.post("/api/v1/hotspots", json=body(limit=2)).json()["data"]
 
     assert data["next_after_id"] == 9
     first, second = data["items"]
@@ -40,14 +40,14 @@ def test_hotspots_page_maps_rows_and_next_cursor(use_fake_db):
 def test_hotspots_last_page_has_no_cursor(use_fake_db):
     use_fake_db(FakeClient(rpcs={"hotspots_page": [row(7)]}))
 
-    assert client.post("/v1/hotspots", json=body(limit=5)).json()["data"]["next_after_id"] is None
+    assert client.post("/api/v1/hotspots", json=body(limit=5)).json()["data"]["next_after_id"] is None
 
 
 def test_hotspots_passes_cursor_and_limit_to_rpc(use_fake_db):
     fake = FakeClient()
     use_fake_db(fake)
 
-    client.post("/v1/hotspots", json=body(after_id=41, limit=10))
+    client.post("/api/v1/hotspots", json=body(after_id=41, limit=10))
 
     assert fake.calls[0][1]["after_id"] == 41
     assert fake.calls[0][1]["page_size"] == 10
@@ -57,7 +57,7 @@ def test_hotspots_366_days_is_allowed(use_fake_db):
     use_fake_db(FakeClient())
     start = date(2025, 1, 1)
 
-    response = client.post("/v1/hotspots", json=body(str(start), str(start + timedelta(days=365))))
+    response = client.post("/api/v1/hotspots", json=body(str(start), str(start + timedelta(days=365))))
 
     assert response.status_code == 200
 
@@ -66,35 +66,35 @@ def test_hotspots_367_days_is_range_too_long(use_fake_db):
     use_fake_db(FakeClient())
     start = date(2025, 1, 1)
 
-    response = client.post("/v1/hotspots", json=body(str(start), str(start + timedelta(days=366))))
+    response = client.post("/api/v1/hotspots", json=body(str(start), str(start + timedelta(days=366))))
 
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "RANGE_TOO_LONG"
+    assert "366 days" in response.json()["detail"]
 
 
 @pytest.mark.parametrize("extra", [{"limit": 1001}, {"limit": 0}, {"after_id": -1}])
 def test_hotspots_rejects_bad_paging(use_fake_db, extra):
     use_fake_db(FakeClient())
 
-    response = client.post("/v1/hotspots", json=body(**extra))
+    response = client.post("/api/v1/hotspots", json=body(**extra))
 
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "INVALID_REQUEST"
+    assert response.json()["detail"][0]["loc"][-1] in {"limit", "after_id"}
 
 
 def test_hotspots_end_before_start_is_invalid(use_fake_db):
     use_fake_db(FakeClient())
 
-    response = client.post("/v1/hotspots", json=body("2026-11-14", "2026-11-01"))
+    response = client.post("/api/v1/hotspots", json=body("2026-11-14", "2026-11-01"))
 
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "INVALID_REQUEST"
+    assert "start_date must not be after end_date" in str(response.json()["detail"])
 
 
 def test_export_semicolon_with_bom_and_download_name(use_fake_db):
     use_fake_db(FakeClient(rpcs={"hotspots_count": 2, "hotspots_page": [row(1), row(2)]}))
 
-    response = client.post("/v1/hotspots/export", json=body(separator=";"))
+    response = client.post("/api/v1/hotspots/export", json=body(separator=";"))
 
     lines = response.text.splitlines()
     assert response.status_code == 200
@@ -107,16 +107,16 @@ def test_export_semicolon_with_bom_and_download_name(use_fake_db):
 def test_export_over_one_million_rows_is_413(use_fake_db):
     use_fake_db(FakeClient(rpcs={"hotspots_count": 1_000_001}))
 
-    response = client.post("/v1/hotspots/export", json=body())
+    response = client.post("/api/v1/hotspots/export", json=body())
 
     assert response.status_code == 413
-    assert response.json()["error"]["code"] == "EXPORT_TOO_LARGE"
+    assert "1000000 limit" in response.json()["detail"]
 
 
 def test_export_has_no_date_limit(use_fake_db):
     use_fake_db(FakeClient(rpcs={"hotspots_count": 0}))
 
-    response = client.post("/v1/hotspots/export", json=body("2001-01-01", "2026-11-14"))
+    response = client.post("/api/v1/hotspots/export", json=body("2001-01-01", "2026-11-14"))
 
     assert response.status_code == 200
 
@@ -133,7 +133,7 @@ def test_export_marks_incomplete_file_when_database_fails_midway(use_fake_db, mo
 
     use_fake_db(FakeClient(rpcs={"hotspots_count": 4, "hotspots_page": page}))
 
-    response = client.post("/v1/hotspots/export", json=body(separator=";"))
+    response = client.post("/api/v1/hotspots/export", json=body(separator=";"))
 
     lines = response.text.splitlines()
     assert response.status_code == 200

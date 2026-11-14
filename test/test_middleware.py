@@ -9,14 +9,14 @@ def test_openapi_schema_builds_for_every_route():
     response = client.get("/openapi.json")
 
     assert response.status_code == 200
-    assert {"/v1/calendar", "/v1/hotspots", "/v1/hotspots/export", "/v1/sources", "/v1/health"} <= set(
+    assert {"/api/v1/calendar", "/api/v1/hotspots", "/api/v1/hotspots/export", "/api/v1/sources", "/api/v1/health"} <= set(
         response.json()["paths"]
     )
 
 
 def test_cors_allows_the_local_frontend():
     response = client.options(
-        "/v1/health",
+        "/api/v1/health",
         headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"},
     )
 
@@ -25,7 +25,7 @@ def test_cors_allows_the_local_frontend():
 
 def test_cors_rejects_other_origins():
     response = client.options(
-        "/v1/health",
+        "/api/v1/health",
         headers={"Origin": "http://evil.test", "Access-Control-Request-Method": "GET"},
     )
 

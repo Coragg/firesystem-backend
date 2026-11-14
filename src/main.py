@@ -7,8 +7,7 @@ from time import perf_counter
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Request
-from fastapi.exceptions import RequestValidationError
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -17,14 +16,13 @@ from src.config import CORS_ORIGINS, LOG_LEVEL
 from src.models.aoi import SWAP_HINT
 from src.models.calendar import CalendarData, CalendarRequest
 from src.models.hotspot import CONFIDENCE_NAMES, ExportRequest, HotspotPage, HotspotsRequest, hotspot_from_row
-from src.models.response import ApiError, ApiResponse, ErrorBody, Meta
+from src.models.response import ApiResponse, Meta
 from src.models.source import (
     CalibrationInfo, Coverage, HealthData, ProductInfo, SatelliteInfo, SourcesData, Validation,
 )
 from src.routers.api_nasa import fires, health, quota, sources
 from src.utils import db
 from src.utils.coverage import AREAS, intersects_coverage
-from src.utils.errors import AoiInvalid, AppError, ExportTooLarge, InvalidRequest, RangeTooLong
 from src.utils.harmonize import build_years, harmonize, validation_error
 from src.utils.pyproject_variables import name, version, description
 from src.utils.stats import current_month, kpis, monthly_stats
@@ -71,36 +69,13 @@ async def request_log(request: Request, call_next):
         )
 
 
-def error_response(
-    request: Request, status: int, code: str, message: str, details: list[dict] | None = None
-) -> JSONResponse:
-    request_id = getattr(request.state, "request_id", None)
-    body = ApiError(error=ErrorBody(code=code, message=message, details=details, request_id=request_id))
-    headers = {"X-Request-ID": request_id} if request_id else None
-    return JSONResponse(status_code=status, content=body.model_dump(), headers=headers)
-
-
-@app.exception_handler(AppError)
-async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
-    return error_response(request, exc.status_code, exc.code, exc.message, exc.details)
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    errors = exc.errors()
-    details = [
-        {"field": ".".join(str(part) for part in e["loc"]), "problem": e["msg"].removeprefix("Value error, ")}
-        for e in errors
-    ]
-    code = "AOI_INVALID" if any("aoi" in e["loc"] for e in errors) else "INVALID_REQUEST"
-    message = details[0]["problem"] if details else "The request is not valid."
-    return error_response(request, 422, code, message, details)
-
-
 @app.exception_handler(Exception)
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.exception("unhandled error id=%s", getattr(request.state, "request_id", None))
-    return error_response(request, 500, "INTERNAL", "Something went wrong on our side.")
+    """Last resort: log the traceback, answer in the same {"detail": ...} shape as every other error."""
+    request_id = getattr(request.state, "request_id", None)
+    logger.exception("unhandled error id=%s", request_id)
+    headers = {"X-Request-ID": request_id} if request_id else None
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"}, headers=headers)
 
 
 STALE_AFTER_HOURS = 36
@@ -142,11 +117,13 @@ class CSVStreamingResponse(StreamingResponse):
         self.headers["Content-Disposition"] = 'attachment; filename="hotspots.csv"'
 
 
-@app.post("/v1/hotspots")
+@app.post("/api/v1/hotspots")
 def hotspots_view(body: HotspotsRequest, client: SupabaseDep) -> ApiResponse[HotspotPage]:
     """Detections in an area for the map, one page at a time."""
     if (body.end_date - body.start_date).days + 1 > MAX_RANGE_DAYS:
-        raise RangeTooLong(f"The range is limited to {MAX_RANGE_DAYS} days; use the export for longer ones.")
+        raise HTTPException(
+            status_code=422, detail=f"The range is limited to {MAX_RANGE_DAYS} days; use the export for longer ones."
+        )
     rows = db.hotspots_page(client, body.aoi.model_dump(), body.start_date, body.end_date, body.after_id, body.limit)
     return ApiResponse(
         data=HotspotPage(
@@ -160,14 +137,16 @@ def check_export_size(body: ExportRequest, client: SupabaseDep) -> ExportRequest
     """Runs before streaming starts, so a too-large export is a real 413 and not a broken file."""
     total = db.hotspots_count(client, body.aoi.model_dump(), body.start_date, body.end_date)
     if total > EXPORT_MAX_ROWS:
-        raise ExportTooLarge(f"{total} detections is over the {EXPORT_MAX_ROWS} limit. Narrow the area or the dates.")
+        raise HTTPException(
+            status_code=413, detail=f"{total} detections is over the {EXPORT_MAX_ROWS} limit. Narrow the area or the dates."
+        )
     return body
 
 
 ExportGuard = Annotated[ExportRequest, Depends(check_export_size)]
 
 
-@app.post("/v1/hotspots/export", response_class=CSVStreamingResponse, status_code=200)
+@app.post("/api/v1/hotspots/export", response_class=CSVStreamingResponse, status_code=200)
 def export_hotspots(request: Request, body: ExportGuard, client: SupabaseDep):
     """Every detection in an area and range as a CSV, streamed page by page."""
 
@@ -197,7 +176,7 @@ def export_hotspots(request: Request, body: ExportGuard, client: SupabaseDep):
         yield f"# EXPORT_INCOMPLETE request_id={request.state.request_id}\n"
 
 
-@app.get("/v1/sources")
+@app.get("/api/v1/sources")
 def sources_view(client: SupabaseDep) -> ApiResponse[SourcesData]:
     """Where the data comes from, how each sensor is scaled and how well the scaling holds."""
     coverage = {r["satellite"]: r for r in db.rpc(client, "satellite_coverage")}
@@ -231,7 +210,7 @@ def sources_view(client: SupabaseDep) -> ApiResponse[SourcesData]:
     )
 
 
-@app.post("/v1/calendar")
+@app.post("/api/v1/calendar")
 def calendar_view(body: CalendarRequest, client: SupabaseDep) -> ApiResponse[CalendarData]:
     """Harmonized fire calendar for an area, with what is normal for each month."""
     today = today_utc()
@@ -247,13 +226,16 @@ def calendar_view(body: CalendarRequest, client: SupabaseDep) -> ApiResponse[Cal
         end = current
         warnings.append("RANGE_CLIPPED")
     if start > end:
-        raise InvalidRequest("start is after the latest month with data")
+        raise HTTPException(status_code=422, detail="start is after the latest month with data")
 
     west, south, east, north = body.aoi.bbox()
     covered = intersects_coverage((west, south, east, north))
     if not covered:
         if intersects_coverage((south, west, north, east)):
-            raise AoiInvalid(f"The area is outside Chile but fits it with latitude and longitude swapped. {SWAP_HINT}.")
+            raise HTTPException(
+                status_code=422,
+                detail=f"The area is outside Chile but fits it with latitude and longitude swapped. {SWAP_HINT}.",
+            )
         warnings.append("AOI_OUTSIDE_COVERAGE")
 
     baseline = range(body.baseline_from, (body.baseline_to or today.year - 1) + 1)
@@ -287,7 +269,7 @@ def calendar_view(body: CalendarRequest, client: SupabaseDep) -> ApiResponse[Cal
     )
 
 
-@app.get("/v1/health")
+@app.get("/api/v1/health")
 def health_view(client: SupabaseDep) -> ApiResponse[HealthData]:
     """Report that the API and database answer, and how fresh the loaded data is."""
     last = db.last_ingest_at(client)

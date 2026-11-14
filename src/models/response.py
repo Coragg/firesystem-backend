@@ -14,15 +14,3 @@ class ApiResponse[DataType](BaseModel):
     success: Literal[True] = True
     data: DataType | None = None
     meta: Meta | None = None
-
-
-class ErrorBody(BaseModel):
-    code: str
-    message: str
-    details: list[dict] | None = None
-    request_id: str | None = None
-
-
-class ApiError(BaseModel):
-    success: Literal[False] = False
-    error: ErrorBody

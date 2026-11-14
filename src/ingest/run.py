@@ -3,6 +3,7 @@ import logging
 import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
+from typing import get_args
 
 import httpx
 from supabase import Client
@@ -10,16 +11,14 @@ from supabase import Client
 from src.config import LOG_LEVEL, SUPABASE_INGEST_KEY, SUPABASE_URL
 from src.ingest.firms import fetch_area_csv, fetch_availability
 from src.ingest.normalize import FirmsResponseError, parse_csv
+from src.models.nasa import FirmsSource
 from src.utils import firms as firms_util
 from src.utils.coverage import AREAS
 from src.utils.supabase import create_supabase_client
 
 logger = logging.getLogger("firesystem.ingest")
 
-KNOWN_SOURCES = {
-    "MODIS_SP", "MODIS_NRT", "VIIRS_SNPP_SP", "VIIRS_SNPP_NRT",
-    "VIIRS_NOAA20_SP", "VIIRS_NOAA20_NRT", "VIIRS_NOAA21_SP", "VIIRS_NOAA21_NRT",
-}
+KNOWN_SOURCES = set(get_args(FirmsSource))  # the team's list: src/models/nasa.py
 CHUNK_DAYS = 5  # FIRMS allows 1-5 days per area request
 UPSERT_BATCH = 1000
 PAUSE_SECONDS = 0.25  # about 2400 calls per 10 minutes, under the FIRMS limit of 5000

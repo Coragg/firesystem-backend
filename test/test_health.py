@@ -18,7 +18,7 @@ def ingest_rows(hours_ago: float) -> dict:
 def test_health_fresh(use_fake_db):
     use_fake_db(FakeClient(tables=ingest_rows(2)))
 
-    data = client.get("/v1/health").json()["data"]
+    data = client.get("/api/v1/health").json()["data"]
 
     assert data["api"] == "ok"
     assert data["database"] == "ok"
@@ -29,13 +29,13 @@ def test_health_fresh(use_fake_db):
 def test_health_stale_after_36_hours(use_fake_db):
     use_fake_db(FakeClient(tables=ingest_rows(40)))
 
-    assert client.get("/v1/health").json()["data"]["data_status"] == "stale"
+    assert client.get("/api/v1/health").json()["data"]["data_status"] == "stale"
 
 
 def test_health_empty_without_ingests(use_fake_db):
     use_fake_db(FakeClient())
 
-    data = client.get("/v1/health").json()["data"]
+    data = client.get("/api/v1/health").json()["data"]
 
     assert data["data_status"] == "empty"
     assert data["last_ingest_at"] is None
@@ -44,7 +44,7 @@ def test_health_empty_without_ingests(use_fake_db):
 def test_health_database_down_returns_503(use_fake_db):
     use_fake_db(FakeClient(error=httpx.ConnectError("no route")))
 
-    response = client.get("/v1/health")
+    response = client.get("/api/v1/health")
 
     assert response.status_code == 503
-    assert response.json()["error"]["code"] == "DATA_STORE_UNAVAILABLE"
+    assert "not responding" in response.json()["detail"]

@@ -28,7 +28,7 @@ def loaded_client() -> FakeClient:
 def test_sources_lists_satellites_with_roles_and_coverage(use_fake_db):
     use_fake_db(loaded_client())
 
-    data = client.get("/v1/sources").json()["data"]
+    data = client.get("/api/v1/sources").json()["data"]
 
     roles = {s["code"]: s["role"] for s in data["satellites"]}
     assert roles == {"snpp": "reference", "noaa20": "fallback", "terra": "scaled"}
@@ -44,7 +44,7 @@ def test_sources_lists_satellites_with_roles_and_coverage(use_fake_db):
 def test_sources_reports_validation_error(use_fake_db):
     use_fake_db(loaded_client())
 
-    data = client.get("/v1/sources").json()["data"]
+    data = client.get("/api/v1/sources").json()["data"]
 
     assert data["validation"] == {"reference": "modis", "mean_abs_error_pct": 0.0}
 
@@ -52,7 +52,7 @@ def test_sources_reports_validation_error(use_fake_db):
 def test_sources_without_calibration_warns(use_fake_db):
     use_fake_db(FakeClient(tables={"satellite": SATELLITES}))
 
-    result = client.get("/v1/sources").json()
+    result = client.get("/api/v1/sources").json()
 
     assert result["meta"]["warnings"] == ["CALIBRATION_MISSING"]
     assert result["data"]["validation"] is None
