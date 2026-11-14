@@ -13,3 +13,15 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+
+docs: |-
+  # API welcome endpoint
+
+  Returns basic information about the FireSystem API. Use this request to check that the backend is reachable.
+
+  The JSON response has this structure:
+
+  - `success`: `true` when the request succeeds.
+  - `data.message`: welcome message containing the configured project name.
+  - `data.version`: project version from `pyproject.toml`.
+  - `data.description`: project description from `pyproject.toml`.

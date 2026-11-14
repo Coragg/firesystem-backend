@@ -73,6 +73,7 @@ The FastAPI entry point is `src.main:app`. The development server defaults to `h
 ## Agent Rules
 
 - **Plan format:** When asked for a plan, ALWAYS follow the structure defined in `.agent/rules/plan_structure.md`.
+- **Bruno collections:** Before creating, editing, or troubleshooting files under `api/firesystem/`, read `.agent/skills/bruno-collections/SKILL.md`. Keep its copies in `.claude/skills/bruno-collections/SKILL.md` and `.codex/skills/bruno-collections/SKILL.md` synchronized.
 
 ## Additional Context
 

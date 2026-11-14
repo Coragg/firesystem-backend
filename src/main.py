@@ -21,18 +21,26 @@ from src.models.response import ApiError, ApiResponse, ErrorBody, Meta
 from src.models.source import (
     CalibrationInfo, Coverage, HealthData, ProductInfo, SatelliteInfo, SourcesData, Validation,
 )
+from src.routers.api_nasa import fires, health, quota, sources
 from src.utils import db
 from src.utils.coverage import AREAS, intersects_coverage
 from src.utils.errors import AoiInvalid, AppError, ExportTooLarge, InvalidRequest, RangeTooLong
 from src.utils.harmonize import build_years, harmonize, validation_error
+from src.utils.pyproject_variables import name, version, description
 from src.utils.stats import current_month, kpis, monthly_stats
 from src.utils.supabase import SupabaseDep
-from src.utils.pyproject_variables import name, version, description
 
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger("firesystem")
+# These log every request URL at INFO, and FIRMS puts the map key in the URL.
+for _noisy in ("httpx", "httpx2", "httpcore"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 app = FastAPI()
+app.include_router(health.router)
+app.include_router(quota.router)
+app.include_router(sources.router)
+app.include_router(fires.router)
 
 # Added first = innermost. request_log is declared last so it wraps everything.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -280,7 +288,7 @@ def calendar_view(body: CalendarRequest, client: SupabaseDep) -> ApiResponse[Cal
 
 
 @app.get("/v1/health")
-def health(client: SupabaseDep) -> ApiResponse[HealthData]:
+def health_view(client: SupabaseDep) -> ApiResponse[HealthData]:
     """Report that the API and database answer, and how fresh the loaded data is."""
     last = db.last_ingest_at(client)
     hours = None if last is None else (datetime.now(UTC) - last).total_seconds() / 3600
