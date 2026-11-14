@@ -29,7 +29,7 @@ Start the development server with automatic reload:
 uv run fastapi dev
 ```
 
-The API is available at <http://127.0.0.1:8000>. The root endpoint (`GET /`) returns a welcome response. Interactive API documentation is available at <http://127.0.0.1:8000/docs>, with the OpenAPI schema at <http://127.0.0.1:8000/openapi.json>.
+The API is available at <http://127.0.0.1:5000>. The root endpoint (`GET /`) returns a welcome response. Interactive API documentation is available at <http://127.0.0.1:5000/docs>, with the OpenAPI schema at <http://127.0.0.1:5000/openapi.json>.
 
 To run the server without development reload:
 

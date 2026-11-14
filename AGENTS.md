@@ -50,7 +50,7 @@ uv add <package-name>
 uv add --dev <package-name>
 ```
 
-The FastAPI entry point is `src.main:app`. The development server defaults to `http://127.0.0.1:8000`; interactive docs are at `/docs`.
+The FastAPI entry point is `src.main:app`. The development server defaults to `http://127.0.0.1:5000`; interactive docs are at `/docs`.
 
 ## Code Conventions
 

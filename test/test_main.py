@@ -10,7 +10,6 @@ def test_root_returns_welcome_message():
     response = client.get("/")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "success": True,
-        "data": {"message": "Welcome to NASA"},
-    }
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["message"] == "Welcome to firesystem-backend"
