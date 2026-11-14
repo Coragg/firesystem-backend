@@ -4,11 +4,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# NASA API key
-
+# NASA api
+FIRMS_MAP_KEY = os.environ["FIRMS_MAP_KEY"]
+FIRMS_BASE_URL = os.environ["FIRMS_BASE_URL"]
 
 # SUPABASE
-
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_KEY = os.environ["SUPABASE_KEY"]
 
 # jwt
 SECRET_KEY = os.environ["SECRET_KEY"]
