@@ -1,0 +1,49 @@
+info:
+  name: fire
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{HOST}}/api/v1/fire"
+  params:
+    - name: source
+      value: MODIS_NRT
+      type: query
+      description: FIRMS product ID; use a supported MODIS or VIIRS active fire product.
+    - name: area
+      value: world
+      type: query
+      description: "world or west,south,east,north bounding box. Example: -71,-34,-70,-33."
+    - name: days
+      value: "1"
+      type: query
+      description: Number of days to query, from 1 to 5.
+    - name: date
+      value: "2026-11-14"
+      type: query
+      disabled: true
+      description: Optional start date in YYYY-MM-DD; omit to request the latest data.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Fire detections by sensor and area
+
+  Queries NASA FIRMS active fire detections and returns JSON. FIRMS supplies CSV upstream; this API parses it before responding.
+
+  ## Query parameters
+
+  - `source` is required. Supported values: `MODIS_NRT`, `MODIS_SP`, `VIIRS_NOAA20_NRT`, `VIIRS_NOAA20_SP`, `VIIRS_NOAA21_NRT`, `VIIRS_NOAA21_SP`, `VIIRS_SNPP_NRT`, `VIIRS_SNPP_SP`.
+  - `area` is `world` or a bounding box in `west,south,east,north` order. Defaults to `world`.
+  - `days` is an integer from 1 to 5 and defaults to 1.
+  - `date` is optional and uses `YYYY-MM-DD`. Without it, FIRMS returns the most recent period. With it, the requested range starts on that date.
+
+  The JSON response wraps `source`, `area`, `days`, and a `detections` array in `{success, data}`. Detections include common typed fields when available and retain other source-specific FIRMS columns.
+
+  `BA_MODIS`, `BA_VIIRS`, `LANDSAT_NRT`, and `GOES_NRT` may appear in `/api/v1/nasa/sources`; this endpoint currently accepts only the MODIS and VIIRS active fire products listed above. A hotspot is a satellite thermal detection, not a confirmed wildfire perimeter.

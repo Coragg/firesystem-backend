@@ -1,0 +1,22 @@
+info:
+  name: health
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{HOST}}/api/v1/nasa/health"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Check NASA FIRMS health
+
+  Checks the configured FIRMS map key by requesting its quota status.
+
+  The JSON response reports whether FIRMS is reachable (`available`), whether the key is considered valid (`key_valid`), and quota details when FIRMS returns them. A failed check is represented in the health payload; it does not return hotspot data.
