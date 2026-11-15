@@ -4,7 +4,7 @@ import pytest
 from fakes import FakeClient
 from fastapi.testclient import TestClient
 
-from src import main
+from src.routers.api_database import hotspots as hotspots_router
 from src.main import app
 
 client = TestClient(app, raise_server_exceptions=False)
@@ -122,7 +122,7 @@ def test_export_has_no_date_limit(use_fake_db):
 
 
 def test_export_marks_incomplete_file_when_database_fails_midway(use_fake_db, monkeypatch):
-    monkeypatch.setattr(main, "EXPORT_PAGE_SIZE", 2)
+    monkeypatch.setattr(hotspots_router, "EXPORT_PAGE_SIZE", 2)
     pages = iter([[row(1), row(2)]])
 
     def page(_params):

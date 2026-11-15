@@ -5,7 +5,7 @@ import pytest
 from fakes import FakeClient
 from fastapi.testclient import TestClient
 
-from src import main
+from src.routers.api_database import calendar as calendar_router
 from src.main import app
 
 client = TestClient(app, raise_server_exceptions=False)
@@ -30,7 +30,7 @@ def fresh_ingest() -> dict:
 
 @pytest.fixture(autouse=True)
 def fixed_today(monkeypatch):
-    monkeypatch.setattr(main, "today_utc", lambda: date(2026, 11, 14))
+    monkeypatch.setattr(calendar_router, "today_utc", lambda: date(2026, 11, 14))
 
 
 def test_calendar_shape_matches_front(use_fake_db):

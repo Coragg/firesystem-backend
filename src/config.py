@@ -32,6 +32,8 @@ SUPABASE_INGEST_KEY = os.getenv("SUPABASE_INGEST_KEY")
 # API
 CORS_ORIGINS = parse_origins(os.getenv("CORS_ORIGINS"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+# [AI] Data older than 36 h counts as stale: the ingest runs daily, so this allows one late or missed run.
+STALE_AFTER_HOURS = 36
 
 # jwt
 SECRET_KEY = os.environ["SECRET_KEY"]

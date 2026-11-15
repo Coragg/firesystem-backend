@@ -16,8 +16,9 @@ FireSystem Backend is the API for a project created for NASA Space Apps Challeng
 .
 ├── api/firesystem/     # Bruno API collection and request definitions
 ├── src/
-│   ├── main.py         # FastAPI application and route handlers
+│   ├── main.py         # FastAPI app: middleware, CORS, error handler and root endpoint
 │   ├── config.py       # Environment/configuration setup
+│   ├── routers/        # Route handlers: api_database (Supabase), api_nasa (FIRMS), api_model (forecast)
 │   ├── models/         # Pydantic API models
 │   └── utils/          # Shared utilities and project metadata helpers
 ├── test/               # Pytest test suite
@@ -57,7 +58,7 @@ The FastAPI entry point is `src.main:app`. With the commands above, the developm
 - Follow PEP 8 and keep code clear, focused, and maintainable.
 - Use type annotations for function parameters and return values.
 - Define request/response data models with Pydantic where appropriate.
-- Keep route handlers in `src/main.py`; move reusable models and helpers into their respective `src/models/` and `src/utils/` modules.
+- Keep route handlers in `src/routers/<group>/` (one `APIRouter` per module, registered in `src/main.py`); `src/main.py` only holds app-wide infrastructure. Put reusable models and helpers in `src/models/` and `src/utils/`.
 - Add or update unit tests for every function introduced or changed by a task. Put tests in `test/` and use `pytest`.
 - Keep dependencies declared through `uv` so `pyproject.toml` and `uv.lock` stay in sync.
 - Read configuration from environment variables; do not commit secrets or real credentials.
