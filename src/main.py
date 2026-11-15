@@ -1,5 +1,3 @@
-import csv
-import io
 import logging
 from time import perf_counter
 from uuid import uuid4
@@ -16,9 +14,6 @@ from src.routers.api_database import health as db_health
 from src.routers.api_database import hotspots as db_hotspots
 from src.routers.api_database import sources as db_sources
 from src.routers.api_data_model import land_cover, lai, terrain
-from src.routers.api_model import hotspot
-# [AI] Merge resolution: the forecast router import came from feature/model_training; the other
-# HEAD-side imports were already in feature/dev-1's list below.
 from src.routers.api_model import hotspot
 from src.routers.api_nasa import fires, quota
 from src.routers.api_nasa import health as nasa_health
