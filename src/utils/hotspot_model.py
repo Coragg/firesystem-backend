@@ -6,8 +6,9 @@ month, elevation and slope of the 500 m pixel, and the land cover class of the l
 
 Feature values come from a `FeatureSource`:
 - `ApiFeatureSource`: HTTP endpoints for AppEEARS-derived values (served by src/routers/api_data_model; the
-  contract is documented below).
-- `LocalFeatureSource`: the AppEEARS files already downloaded under `data/AppEEARS/<Region>/`.
+  contract is documented below). [AI] The forecast endpoint uses only this source.
+- `LocalFeatureSource`: the AppEEARS files already downloaded under `data/AppEEARS/<Region>/`. [AI] Used only
+  by the data-model API to serve those endpoints, never by the forecast directly.
 """
 
 import json

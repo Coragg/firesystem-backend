@@ -21,6 +21,7 @@ FireSystem Backend is the API for a project created for NASA Space Apps Challeng
 │   ├── routers/        # Route handlers: api_database (Supabase), api_nasa (FIRMS), api_model (forecast), api_data_model (model inputs)
 │   ├── models/         # Pydantic API models
 │   └── utils/          # Shared utilities and project metadata helpers
+├── models/             # Trained hotspot model loaded by the API (model.json + metadata.json)
 ├── test/               # Pytest test suite
 ├── pyproject.toml      # Project metadata, dependencies, and tool config
 ├── uv.lock             # Locked dependency versions

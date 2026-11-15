@@ -116,7 +116,7 @@ def test_api_feature_source_follows_the_contract(monkeypatch):
 def client(model_dir, monkeypatch):
     hm.cached_bundle.cache_clear()
     monkeypatch.setattr(hotspot_router.config, "HOTSPOT_MODEL_DIR", str(model_dir))
-    monkeypatch.setattr(hotspot_router, "feature_source", lambda: FakeSource())
+    monkeypatch.setattr(hotspot_router, "feature_source", lambda _request: FakeSource())
     return TestClient(app)
 
 
@@ -135,15 +135,43 @@ def test_forecast_endpoint_errors(client, monkeypatch):
     assert client.get("/api/v1/hotspot/forecast", params={"date": "2027-01-20", "lat": -33.0, "lon": -71.0}).status_code == 422
     assert client.get("/api/v1/hotspot/forecast", params={"date": "2027-13-01", "lat": -35.0, "lon": -71.0}).status_code == 422
 
-    monkeypatch.setattr(hotspot_router, "feature_source", lambda: FakeSource(lai=None))
+    monkeypatch.setattr(hotspot_router, "feature_source", lambda _request: FakeSource(lai=None))
     assert client.get("/api/v1/hotspot/forecast", params={"date": "2027-01-20", "lat": -35.0, "lon": -71.0}).status_code == 422
 
     class Offline(FakeSource):
         def monthly_lai(self, *args):
             raise httpx.ConnectError("offline")
 
-    monkeypatch.setattr(hotspot_router, "feature_source", lambda: Offline())
+    monkeypatch.setattr(hotspot_router, "feature_source", lambda _request: Offline())
     assert client.get("/api/v1/hotspot/forecast", params={"date": "2027-01-20", "lat": -35.0, "lon": -71.0}).status_code == 502
+
+
+def test_forecast_uses_only_the_data_api(monkeypatch):
+    """[AI] Without APPEEARS_DATA_URL the model calls this server's own data-model API, never local files."""
+    request = type("FakeRequest", (), {"base_url": "http://testserver/"})()
+    monkeypatch.setattr(hotspot_router.config, "APPEEARS_DATA_URL", "")
+    source = hotspot_router.feature_source(request)
+    assert isinstance(source, hm.ApiFeatureSource)
+    assert source.base_url == "http://testserver/api/v1/data-model"
+
+    monkeypatch.setattr(hotspot_router.config, "APPEEARS_DATA_URL", "https://data.example/api/v1/data-model/")
+    assert hotspot_router.feature_source(request).base_url == "https://data.example/api/v1/data-model"
+
+
+@pytest.mark.parametrize("status", [422, 503])
+def test_forecast_passes_on_data_api_422_and_503(client, monkeypatch, status):
+    """[AI] A rejection by the data API keeps its status and message instead of becoming a generic 502."""
+
+    class Rejecting(FakeSource):
+        def terrain(self, *args):
+            request = httpx.Request("GET", "http://data/terrain")
+            response = httpx.Response(status, json={"detail": "No terrain data"}, request=request)
+            raise httpx.HTTPStatusError("rejected", request=request, response=response)
+
+    monkeypatch.setattr(hotspot_router, "feature_source", lambda _request: Rejecting())
+    response = client.get("/api/v1/hotspot/forecast", params={"date": "2027-01-20", "lat": -35.0, "lon": -71.0})
+    assert response.status_code == status
+    assert response.json()["detail"] == "No terrain data"
 
 
 def test_forecast_endpoint_without_model_is_503(monkeypatch, tmp_path):
