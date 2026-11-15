@@ -8,7 +8,7 @@ http:
   url: "{{HOST}}/api/v1/hotspot/forecast"
   params:
     - name: date
-      value: "2027-01-15"
+      value: 2027-01-15
       type: query
       description: Any day of the month to forecast, YYYY-MM-DD.
     - name: lat
