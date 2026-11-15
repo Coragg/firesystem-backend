@@ -1,0 +1,48 @@
+info:
+  name: lai
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{HOST}}/api/v1/data-model/lai"
+  params:
+    - name: lat
+      value: "-35.4"
+      type: query
+      description: Latitude in decimal degrees, inside the region the model was trained on.
+    - name: lon
+      value: "-71.6"
+      type: query
+      description: Longitude in decimal degrees, inside the region the model was trained on.
+    - name: start
+      value: 2024-01
+      type: query
+      description: First month, YYYY-MM.
+    - name: end
+      value: 2024-12
+      type: query
+      description: Last month, YYYY-MM (inclusive). At most 120 months from start.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Monthly leaf area index of a pixel
+
+  Monthly mean leaf area index (m²/m²) of the 500 m pixel containing `lat`, `lon`, from the good-quality MCD15A3H.061 composites (`Lai_500m`, filtered with `FparLai_QC`). These are the inputs of `hotspot/forecast`.
+
+  ## Response
+
+  `data` is a list with one `{month, lai}` per month from `start` to `end`; `lai` is `null` when the month has no valid composite.
+
+  ## Errors
+
+  - `422` for a point outside the trained area, `start` after `end`, a bad month or more than 120 months.
+  - `503` when the model files or the AppEEARS files are missing.
+
+  The first call builds the monthly grid and can take about 20 seconds.

@@ -97,7 +97,7 @@ def test_api_feature_source_follows_the_contract(monkeypatch):
         data = {
             "lai": [{"month": "2024-12", "lai": 1.5}, {"month": "2025-01", "lai": None}],
             "terrain": {"elevation_m": 100, "slope_deg": 3},
-            "land_cover": {"year": 2024, "igbp_class": 9},
+            "land-cover": {"year": 2024, "igbp_class": 9},
         }[url.rsplit("/", 1)[1]]
         return httpx.Response(200, json={"data": data}, request=httpx.Request("GET", url))
 

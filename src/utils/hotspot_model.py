@@ -5,8 +5,8 @@ The model and its metadata are saved by `src/notebooks/XGBoost_Hotspot_Forecast.
 month, elevation and slope of the 500 m pixel, and the land cover class of the latest year <= year - 2.
 
 Feature values come from a `FeatureSource`:
-- `ApiFeatureSource`: HTTP endpoints for AppEEARS-derived values (not implemented in this API yet; the
-  contract below is assumed).
+- `ApiFeatureSource`: HTTP endpoints for AppEEARS-derived values (served by src/routers/api_data_model; the
+  contract is documented below).
 - `LocalFeatureSource`: the AppEEARS files already downloaded under `data/AppEEARS/<Region>/`.
 """
 
@@ -142,13 +142,13 @@ def predict(bundle: ModelBundle, features: dict) -> tuple[float, float]:
 
 
 class ApiFeatureSource:
-    """AppEEARS-derived values from HTTP endpoints (assumed contract; not yet in this API).
+    """AppEEARS-derived values from HTTP endpoints; `{base}` is e.g. `https://host/api/v1/data-model` (see src/routers/api_data_model/).
 
     GET {base}/lai?lat=&lon=&start=YYYY-MM&end=YYYY-MM -> {"data": [{"month": "YYYY-MM", "lai": float | null}, ...]}
         monthly mean of good-quality MCD15A3H Lai_500m composites of the 500 m pixel
     GET {base}/terrain?lat=&lon= -> {"data": {"elevation_m": float, "slope_deg": float}}
         SRTMGL3 elevation and slope averaged over the 500 m pixel
-    GET {base}/land_cover?lat=&lon=&max_year=YYYY -> {"data": {"year": int | null, "igbp_class": int | null}}
+    GET {base}/land-cover?lat=&lon=&max_year=YYYY -> {"data": {"year": int | null, "igbp_class": int | null}}
         MCD12Q1 LC_Type1 of the latest year <= max_year
     """
 
@@ -172,7 +172,7 @@ class ApiFeatureSource:
         return float(data["elevation_m"]), float(data["slope_deg"])
 
     def land_cover(self, lat: float, lon: float, max_year: int) -> tuple[int | None, float]:
-        data = self._get("land_cover", {"lat": lat, "lon": lon, "max_year": max_year})
+        data = self._get("land-cover", {"lat": lat, "lon": lon, "max_year": max_year})
         return data["year"], (np.nan if data["igbp_class"] is None else float(data["igbp_class"]))
 
 

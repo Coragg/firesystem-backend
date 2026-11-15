@@ -13,6 +13,7 @@ from src.routers.api_database import calendar as db_calendar
 from src.routers.api_database import health as db_health
 from src.routers.api_database import hotspots as db_hotspots
 from src.routers.api_database import sources as db_sources
+from src.routers.api_data_model import land_cover, lai, terrain
 from src.routers.api_model import hotspot
 from src.routers.api_nasa import fires, quota
 from src.routers.api_nasa import health as nasa_health
@@ -27,7 +28,7 @@ for _noisy in ("httpx", "httpx2", "httpcore"):
 
 # [AI] main.py only holds app-wide infrastructure (middleware, CORS, error handler, root). Every endpoint
 # lives in src/routers/: api_database (reads the data loaded by the ingest job in src/ingest/),
-# api_nasa (live NASA FIRMS pass-through) and api_model (hotspot forecast).
+# api_nasa (live NASA FIRMS pass-through), api_model (hotspot forecast) and api_data_model (its inputs).
 app = FastAPI()
 app.include_router(db_health.router)
 app.include_router(db_hotspots.router)
@@ -38,6 +39,9 @@ app.include_router(quota.router)
 app.include_router(nasa_sources.router)
 app.include_router(fires.router)
 app.include_router(hotspot.router)
+app.include_router(lai.router)
+app.include_router(terrain.router)
+app.include_router(land_cover.router)
 
 # Added first = innermost. request_log is declared last so it wraps everything.
 app.add_middleware(GZipMiddleware, minimum_size=1000)

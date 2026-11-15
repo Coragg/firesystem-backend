@@ -85,3 +85,17 @@ uv run python -m src.ingest daily
 Exit codes: `0` ok, `1` some chunks failed (re-run), `2` FIRMS rejected the request or the write key is missing.
 
 To run `daily` every day on Windows, create a Task Scheduler task that runs `uv run python -m src.ingest daily` in this folder. Check it with `GET /api/v1/health`: `data_status` is `fresh` when the last load finished less than 36 hours ago.
+
+## Data for the hotspot model (`/api/v1/data-model`)
+
+The hotspot forecast (`GET /api/v1/hotspot/forecast`) needs leaf area, terrain and land cover values from AppEEARS. These three endpoints serve them from the files under `APPEEARS_LOCAL_DIR` (default `data/AppEEARS/Maule`), for the 500 m pixel containing the point:
+
+| Endpoint | Query | Data (`data`) | AppEEARS layers |
+|---|---|---|---|
+| `GET /api/v1/data-model/lai` | `lat`, `lon`, `start=YYYY-MM`, `end=YYYY-MM` | `[{month, lai}]`, `lai` is `null` without a good composite | `MCD15A3H.061`: `Lai_500m`, `FparLai_QC` |
+| `GET /api/v1/data-model/terrain` | `lat`, `lon` | `{elevation_m, slope_deg}` | `SRTMGL3_NC.003`: `SRTMGL3_DEM` |
+| `GET /api/v1/data-model/land-cover` | `lat`, `lon`, `max_year=YYYY` | `{year, igbp_class}` | `MCD12Q1.061`: `LC_Type1` |
+
+Points outside the trained area answer `422`; missing model or AppEEARS files answer `503`. The first `lai` call builds the monthly grid and can take about 20 seconds.
+
+To let another deployment use them, set `HOTSPOT_FEATURE_SOURCE=api` and `APPEEARS_DATA_URL=https://<host>/api/v1/data-model` there. Keep `HOTSPOT_FEATURE_SOURCE=local` on the host that has the files.

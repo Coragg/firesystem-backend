@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: "{{HOST}}/api/v1/hotspot/forecast?date=2027-01-15&lat=-35.4&lon=-71.6"
+  url: "{{HOST}}/api/v1/hotspot/forecast"
   params:
     - name: date
       value: 2027-01-15
