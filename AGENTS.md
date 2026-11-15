@@ -80,4 +80,5 @@ The FastAPI entry point is `src.main:app`. With the commands above, the developm
 - `pyproject.toml` configures the FastAPI entry point and pytest's project-root import path.
 - `src/utils/pyproject_variables.py` reads the package name, version, and description from `pyproject.toml`.
 - The Bruno collection in `api/firesystem/` documents the API requests.
+- **AI-written comments:** comments and docstrings tagged `[AI]` (`# [AI] ...` in Python, `-- [AI] ...` in SQL, `"""[AI] ..."""` docstrings) were added by an AI assistant to describe existing code; they did not change behaviour. Where they say "Decision visible in the code", the rationale is read from the code itself, not from the original author. Find them with `grep -rn "\[AI\]" src db`.
 - Keep this file aligned with the repository as its structure and development workflow evolve.
