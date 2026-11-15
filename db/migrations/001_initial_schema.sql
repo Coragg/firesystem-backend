@@ -55,8 +55,8 @@ create table if not exists ingest_batch (
 create index if not exists ingest_batch_lookup on ingest_batch (source_code, area, date_from, date_to, status);
 
 -- [AI] Every MODIS / VIIRS hotspot, normalized by src/ingest/normalize.py.
--- solar_date = the local solar day (UTC time shifted by longitude / 15 hours), so a night pass is not
--- split across two UTC dates. cell_x / cell_y = floor(lon or lat / 0.05): the ~5 km grid used for counting.
+-- solar_date = the local solar day (UTC time shifted by longitude / 15 hours), so days follow local
+-- time rather than UTC. cell_x / cell_y = floor(lon or lat / 0.05): the ~5 km grid used for counting.
 -- confidence_level: 0 low, 1 nominal, 2 high (MODIS 0-100 and VIIRS l/n/h mapped onto one scale).
 create table if not exists fire_detection (
   id bigint generated always as identity primary key,
@@ -87,7 +87,7 @@ create index if not exists fire_detection_solar_date on fire_detection (solar_da
 
 create index if not exists fire_detection_source_time on fire_detection (source_code, acq_time);
 
--- [AI] Grid cells left out of the counts: volcanoes and other static heat sources (industry, flares),
+-- [AI] Grid cells left out of the counts: volcanoes and other static land sources (FIRMS fire types 1 and 2),
 -- found automatically by refresh_excluded_cells() or added by hand (origin 'team').
 create table if not exists excluded_cell (
   cell_x int,
