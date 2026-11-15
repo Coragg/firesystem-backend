@@ -13,3 +13,6 @@ wheels/
 .env.*
 .ENV.*
 .DS_Store
+
+# Data
+data/
