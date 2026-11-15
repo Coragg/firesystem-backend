@@ -6,6 +6,7 @@ settings use `os.getenv(...)` with a default.
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -41,8 +42,12 @@ ALGORITHM = os.environ["ALGORITHM"]
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
 # Hotspot forecast model (saved by src/notebooks/XGBoost_Hotspot_Forecast.ipynb)
-HOTSPOT_MODEL_DIR = os.getenv("HOTSPOT_MODEL_DIR", "data/models/hotspots/Maule")
-# Where the model's input data comes from: "api" (APPEEARS_DATA_URL endpoints) or "local" (downloaded files)
-HOTSPOT_FEATURE_SOURCE = os.getenv("HOTSPOT_FEATURE_SOURCE", "api")
+# [AI] model.json + metadata.json live in models/ at the repository root. The default is resolved from this
+# file's location, so it works whatever folder the server is started from.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+HOTSPOT_MODEL_DIR = os.getenv("HOTSPOT_MODEL_DIR", str(REPO_ROOT / "models"))
+# [AI] The model always gets its input data from the data-model API over HTTP. APPEEARS_DATA_URL is that
+# API's base URL (e.g. https://<host>/api/v1/data-model); empty means this same server's /api/v1/data-model.
 APPEEARS_DATA_URL = os.getenv("APPEEARS_DATA_URL", "")
-APPEEARS_LOCAL_DIR = os.getenv("APPEEARS_LOCAL_DIR", "data/AppEEARS/Maule")
+# [AI] AppEEARS files read by the data-model API only (src/routers/api_data_model), never by the model.
+APPEEARS_LOCAL_DIR = os.getenv("APPEEARS_LOCAL_DIR", str(REPO_ROOT / "data" / "AppEEARS" / "Maule"))

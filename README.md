@@ -98,4 +98,4 @@ The hotspot forecast (`GET /api/v1/hotspot/forecast`) needs leaf area, terrain a
 
 Points outside the trained area answer `422`; missing model or AppEEARS files answer `503`. The first `lai` call builds the monthly grid and can take about 20 seconds.
 
-To let another deployment use them, set `HOTSPOT_FEATURE_SOURCE=api` and `APPEEARS_DATA_URL=https://<host>/api/v1/data-model` there. Keep `HOTSPOT_FEATURE_SOURCE=local` on the host that has the files.
+The forecast never reads AppEEARS files itself: it always gets its inputs from these endpoints over HTTP. By default it calls this same server's `/api/v1/data-model`, so only the data-model endpoints need the files in `APPEEARS_LOCAL_DIR`. To use another deployment's data instead, set `APPEEARS_DATA_URL=https://<host>/api/v1/data-model`. A `422` or `503` from the data API is passed on by the forecast with the same message; any other failure is a `502`.

@@ -2,6 +2,10 @@
 
 [AI] The model files come from `src/notebooks/XGBoost_Hotspot_Forecast.ipynb`; the logic lives in
 `src/utils/hotspot_model.py`. This router only maps settings and errors to HTTP.
+
+[AI] The model's input data (leaf area, terrain, land cover) is only ever fetched over HTTP from the
+data-model API (`/api/v1/data-model`); this router never reads AppEEARS files. By default it calls the
+data-model endpoints of this same server; set APPEEARS_DATA_URL to use another deployment's.
 """
 
 from datetime import date
@@ -9,7 +13,7 @@ from pathlib import Path
 
 import httpx
 import numpy as np
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from src import config
 from src.models.hotspot import HotspotForecast, HotspotModelInfo
@@ -19,13 +23,32 @@ from src.utils import hotspot_model as hm
 router = APIRouter(prefix="/api/v1/hotspot", tags=["Hotspot forecast"])
 
 
-def feature_source() -> hm.FeatureSource:
-    """Return the configured source of the model's input data."""
-    if config.HOTSPOT_FEATURE_SOURCE == "local":
-        return hm.cached_local_source(str(Path(config.APPEEARS_LOCAL_DIR).resolve()))
-    if config.HOTSPOT_FEATURE_SOURCE == "api":
-        return hm.ApiFeatureSource(config.APPEEARS_DATA_URL)
-    raise ValueError(f"HOTSPOT_FEATURE_SOURCE must be 'api' or 'local', got {config.HOTSPOT_FEATURE_SOURCE!r}")
+DATA_MODEL_PATH = "api/v1/data-model"
+
+
+def data_api_url(request: Request) -> str:
+    """[AI] Base URL of the data-model API: APPEEARS_DATA_URL if set, else this server's own endpoints."""
+    return config.APPEEARS_DATA_URL or f"{request.base_url}{DATA_MODEL_PATH}"
+
+
+def feature_source(request: Request) -> hm.FeatureSource:
+    """[AI] Return the source of the model's input data: always the data-model API, over HTTP."""
+    return hm.ApiFeatureSource(data_api_url(request))
+
+
+def data_api_error(exc: httpx.HTTPError) -> HTTPException:
+    """[AI] Map a failed data-model API call to the forecast's own HTTP error.
+
+    [AI] 422 (point or data unusable) and 503 (data files missing on the data server) are passed on with
+    their message, so the answer is the same as if the data were read here; anything else is a 502.
+    """
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (422, 503):
+        try:
+            detail = exc.response.json().get("detail", "Data API rejected the request")
+        except ValueError:
+            detail = "Data API rejected the request"
+        return HTTPException(status_code=exc.response.status_code, detail=detail)
+    return HTTPException(status_code=502, detail="Data API request failed")
 
 
 def model_bundle() -> hm.ModelBundle:
@@ -55,23 +78,21 @@ def json_value(value: object) -> float | int | None:
     ),
 )
 def get_hotspot_forecast(
+    request: Request,
     date_: date = Query(alias="date", description="Any day of the month to forecast (YYYY-MM-DD)."),
     lat: float = Query(ge=-90, le=90, description="Latitude in decimal degrees."),
     lon: float = Query(ge=-180, le=180, description="Longitude in decimal degrees."),
 ) -> ApiResponse[HotspotForecast]:
     """[AI] Snap the point to the model grid, build the features, and return the probability.
 
-    [AI] Error mapping: missing model files or bad settings -> 503 (the server is not ready);
-    point outside the trained area or no input data -> 422; feature data API down -> 502.
+    [AI] Error mapping: missing model files -> 503 (the server is not ready); point outside the trained
+    area or no input data -> 422; the data API's own 422 / 503 are passed on; data API down -> 502.
     """
     try:
         bundle = model_bundle()
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    try:
-        source = feature_source()
-    except ValueError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    source = feature_source(request)
 
     month = date_.replace(day=1)  # [AI] the model works per month, so any day selects its month
     try:
@@ -80,7 +101,7 @@ def get_hotspot_forecast(
     except hm.FeatureError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail="Data API request failed") from exc
+        raise data_api_error(exc) from exc
 
     score, probability = hm.predict(bundle, features)
     meta = bundle.metadata
