@@ -1,3 +1,8 @@
+"""[AI] `GET /api/v1/nasa/sources`: FIRMS products and their available date ranges, live from FIRMS.
+
+[AI] Not to be confused with `GET /api/v1/sources` in `src/main.py`, which describes the data loaded in the database.
+"""
+
 import httpx
 from fastapi import APIRouter, HTTPException
 
@@ -19,6 +24,7 @@ router = APIRouter(prefix="/api/v1/nasa", tags=["NASA FIRMS"])
     ),
 )
 def get_sources() -> ApiResponse[list[FirmsSourceAvailability]]:
+    """[AI] Return every FIRMS availability row; columns other than the three known ones go into `extra`."""
     try:
         rows = fetch_sources()
     except httpx.HTTPError as exc:

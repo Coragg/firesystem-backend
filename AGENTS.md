@@ -35,10 +35,10 @@ Run these from the repository root:
 uv sync
 
 # Start the API with reload for local development
-uv run fastapi dev
+uv run fastapi dev --port 5000
 
 # Run the API without development reload
-uv run fastapi run
+uv run fastapi run --port 5000
 
 # Run the test suite
 uv run pytest
@@ -50,7 +50,7 @@ uv add <package-name>
 uv add --dev <package-name>
 ```
 
-The FastAPI entry point is `src.main:app`. The development server defaults to `http://127.0.0.1:8000`; interactive docs are at `/docs`.
+The FastAPI entry point is `src.main:app`. With the commands above, the development server runs at `http://127.0.0.1:5000`; interactive docs are at `/docs`.
 
 ## Code Conventions
 

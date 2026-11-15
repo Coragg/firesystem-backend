@@ -1,0 +1,29 @@
+info:
+  name: sources
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{HOST}}/api/v1/sources"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # What data we have loaded and how it is scaled
+
+  Describes the satellites, the FIRMS products loaded, the scale factors that put MODIS on the same level as VIIRS, and how well that scaling holds. This is what we hold in Supabase; `nasa/sources` shows what NASA has available.
+
+  ## Response
+
+  - `data.satellites`: the 5 satellites with `role` (`reference` is S-NPP, `fallback` is the other VIIRS, `scaled` is MODIS) and the first and last day with data (`null` until data is loaded).
+  - `data.products`: FIRMS products loaded, with their date range (empty until the first ingest).
+  - `data.calibration`: the factor `k` per reference and month.
+  - `data.validation`: mean error of the scaling, or `null` when there is nothing to compare.
+  - `data.coverage`: the area we load (Chile).
+  - `meta.warnings` contains `CALIBRATION_MISSING` while there are no factors yet; this is normal before the first load.

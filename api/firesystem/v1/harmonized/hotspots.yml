@@ -1,0 +1,54 @@
+info:
+  name: hotspots
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{HOST}}/api/v1/hotspots"
+  body:
+    type: json
+    data: |-
+      {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [[[-73.2, -37.9], [-71.5, -37.9], [-71.5, -36.5], [-73.2, -36.5], [-73.2, -37.9]]]
+        },
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-10",
+        "limit": 50
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Hotspots of an area, one page at a time
+
+  Returns the individual detections for the map. The example dates match the suggested test load (2024-01-01 to 2024-01-10); change them to a range that has data.
+
+  ## Body
+
+  - `aoi` (required): GeoJSON `Polygon`, as in `calendar`.
+  - `start_date`, `end_date` (required): `YYYY-MM-DD`, at most 366 days apart. Use `hotspots export` for longer ranges.
+  - `limit` (optional): 1 to 1000, default 500.
+  - `after_id` (optional): paste the previous response's `next_after_id` to get the next page.
+
+  ## Response
+
+  - `data.items`: detections with `lat`, `lon`, `acq_time`, `solar_date`, `satellite`, `instrument`, `confidence` (`low`, `nominal`, `high`), `frp`, `provisional` (still near-real-time data) and `excluded` (low confidence, water or a volcano cell: show it greyed out, not counted in the calendar).
+  - `data.next_after_id`: the cursor for the next page, `null` on the last page.
+
+  ## What to expect
+
+  - Before any load: `items` is `[]` and `next_after_id` is `null`.
+
+  ## Errors
+
+  - `422` `{"detail": "The range is limited to 366 days..."}` for a longer range.
+  - `422` with a `detail` list for `limit` above 1000, a negative `after_id`, or `start_date` after `end_date`.
+  - `503` when Supabase cannot be reached.

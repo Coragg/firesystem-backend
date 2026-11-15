@@ -31,6 +31,8 @@ class FeatureError(ValueError):
 
 
 class FeatureSource(Protocol):
+    """[AI] Where model inputs come from; both implementations below satisfy it, so the router can switch by config."""
+
     def monthly_lai(self, lat: float, lon: float, months: list[pd.Timestamp]) -> dict[pd.Timestamp, float]:
         """Monthly mean leaf area index (m²/m², good-quality composites only) of the 500 m pixel; NaN if none."""
 
@@ -43,6 +45,8 @@ class FeatureSource(Protocol):
 
 @dataclass
 class ModelBundle:
+    """[AI] A trained XGBoost model with its training metadata (grid, features, lags, negative sampling rate)."""
+
     model: object
     metadata: dict
     lat: np.ndarray = field(init=False)
@@ -59,7 +63,7 @@ class ModelBundle:
 
 def load_bundle(model_dir: str | Path) -> ModelBundle:
     """Load `model.json` and `metadata.json` from `model_dir`."""
-    import xgboost as xgb
+    import xgboost as xgb  # [AI] deferred import: xgboost is only loaded when a forecast is requested
 
     model_dir = Path(model_dir)
     model_path, metadata_path = model_dir / MODEL_FILE, model_dir / METADATA_FILE
@@ -72,6 +76,7 @@ def load_bundle(model_dir: str | Path) -> ModelBundle:
 
 @lru_cache(maxsize=4)
 def cached_bundle(model_dir: str) -> ModelBundle:
+    """[AI] `load_bundle`, cached per directory so the model is read from disk once per process."""
     return load_bundle(model_dir)
 
 
@@ -79,6 +84,7 @@ def snap_to_pixel(bundle: ModelBundle, lat: float, lon: float) -> tuple[float, f
     """Return the centre of the model grid's 500 m pixel containing (lat, lon); FeatureError outside the grid."""
     half_lat = abs(np.diff(bundle.lat).mean()) / 2
     half_lon = abs(np.diff(bundle.lon).mean()) / 2
+    # [AI] Nearest grid centre, accepted only within half a pixel (+1 % for float rounding).
     i, j = int(np.abs(bundle.lat - lat).argmin()), int(np.abs(bundle.lon - lon).argmin())
     if abs(bundle.lat[i] - lat) > half_lat * 1.01 or abs(bundle.lon[j] - lon) > half_lon * 1.01:
         west, south, east, north = bundle.metadata["bbox"]
@@ -128,6 +134,7 @@ def predict(bundle: ModelBundle, features: dict) -> tuple[float, float]:
     hotspot_probability undoes the negative sampling: the estimated real chance of at least one hotspot.
     """
     row = pd.DataFrame([{name: features.get(name, np.nan) for name in bundle.features}])
+    # [AI] Same categories as in training, otherwise XGBoost would encode the single row's class differently.
     if "land_cover" in row:
         row["land_cover"] = pd.Categorical(row["land_cover"], categories=bundle.metadata["land_cover_categories"])
     score = float(bundle.model.predict_proba(row)[:, 1][0])
@@ -151,6 +158,7 @@ class ApiFeatureSource:
         self.base_url, self.timeout = base_url.rstrip("/"), timeout
 
     def _get(self, path: str, params: dict) -> dict | list:
+        """[AI] GET `{base_url}/{path}` and return the `data` field of the ApiResponse-style envelope."""
         response = httpx.get(f"{self.base_url}/{path}", params=params, timeout=self.timeout)
         response.raise_for_status()
         return response.json()["data"]
@@ -173,6 +181,7 @@ class LocalFeatureSource:
 
     def __init__(self, appeears_dir: str | Path):
         self.appeears_dir = Path(appeears_dir)
+        # [AI] Each grid is loaded lazily on first use and kept in memory for later requests.
         self._monthly_lai = None
         self._terrain = None
         self._land_cover = None
@@ -216,4 +225,5 @@ class LocalFeatureSource:
 
 @lru_cache(maxsize=4)
 def cached_local_source(appeears_dir: str) -> LocalFeatureSource:
+    """[AI] One LocalFeatureSource per directory, so its in-memory grids are shared across requests."""
     return LocalFeatureSource(appeears_dir)

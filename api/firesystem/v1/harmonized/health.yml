@@ -1,0 +1,34 @@
+info:
+  name: health
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{HOST}}/api/v1/health"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Database and data freshness
+
+  Checks that the API reaches Supabase and reports how fresh the loaded data is. It does not call NASA; use `nasa/health` for that.
+
+  ## Response
+
+  `data.data_status` is one of:
+
+  - `empty`: nothing has been loaded yet (expected before the first ingest).
+  - `fresh`: the last successful load finished less than 36 hours ago.
+  - `stale`: the last load is older than 36 hours; the daily ingest probably failed.
+
+  `data.last_ingest_at` and `data.hours_since_last_ingest` are `null` while the status is `empty`.
+
+  ## Errors
+
+  - `503` with `{"detail": "The data store is not responding..."}` when Supabase cannot be reached.

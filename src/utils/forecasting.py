@@ -443,9 +443,12 @@ class SeasonalNaive:
         self.column, self.low, self.high = column, low, high
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "SeasonalNaive":
+        """[AI] Nothing to learn; present so the baseline plugs into `walk_forward` like a real model."""
         return self
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """[AI] scikit-learn layout: column 0 = P(no burn), column 1 = P(burn)."""
+        # [AI] Clipped away from 0 and 1 so log loss stays finite.
         p = np.clip(X[self.column].fillna(0).to_numpy(dtype=float), self.low, self.high)
         return np.c_[1 - p, p]
 
@@ -457,6 +460,7 @@ class Climatology:
         self.by = list(by)
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "Climatology":
+        """[AI] Store the burn share per group plus the overall share, used for groups unseen in training."""
         by = [c for c in self.by if c in X]
         self.by_ = by
         self.rates_ = pd.Series(np.asarray(y, dtype=float), index=X.index).groupby([X[c] for c in by]).mean()
@@ -464,6 +468,7 @@ class Climatology:
         return self
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """[AI] scikit-learn layout: column 0 = P(no burn), column 1 = P(burn)."""
         keys = pd.MultiIndex.from_frame(X[self.by_]) if len(self.by_) > 1 else pd.Index(X[self.by_[0]])
         p = self.rates_.reindex(keys).fillna(self.overall_).to_numpy()
         return np.c_[1 - p, p]

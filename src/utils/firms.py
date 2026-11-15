@@ -1,3 +1,9 @@
+"""[AI] Thin client for the NASA FIRMS API, used by the `/api/v1/nasa/*` and `/api/v1/fire` routers.
+
+[AI] The map key is part of every URL, so URLs from this module must not be logged (see `src/main.py`,
+which silences httpx's request logging for this reason).
+"""
+
 import csv
 import io
 from typing import Any
@@ -7,16 +13,19 @@ import httpx
 from src.config import FIRMS_BASE_URL, FIRMS_MAP_KEY
 
 FIRMS_SOURCES_URL = f"{FIRMS_BASE_URL}/data_availability/csv/{FIRMS_MAP_KEY}/ALL"
+# [AI] The key-status service lives outside /api, so the suffix is stripped from the configured base URL.
 FIRMS_QUOTA_URL = f"{FIRMS_BASE_URL.rstrip('/').removesuffix('/api')}/mapserver/mapkey_status/"
 
 
 def _get(url: str) -> httpx.Response:
+    """[AI] GET with a 60 s timeout; HTTP error statuses raise httpx.HTTPStatusError."""
     response = httpx.get(url, timeout=60)
     response.raise_for_status()
     return response
 
 
 def _parse_csv(response: httpx.Response) -> list[dict[str, str]]:
+    """[AI] Parse a FIRMS CSV body into one dict per row, keyed by the header (all values stay strings)."""
     return list(csv.DictReader(io.StringIO(response.text)))
 
 

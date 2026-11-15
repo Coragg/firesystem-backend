@@ -1,3 +1,8 @@
+"""[AI] `GET /api/v1/fire`: live MODIS/VIIRS detections from the FIRMS area API, converted from CSV to JSON.
+
+[AI] Goes straight to FIRMS (not the database), so it needs a valid map key and counts against its quota.
+"""
+
 import re
 from datetime import date
 
@@ -9,10 +14,16 @@ from src.models.response import ApiResponse
 from src.utils.firms import fetch_hotspots
 
 router = APIRouter(prefix="/api/v1", tags=["NASA FIRMS"])
+# [AI] Four comma-separated decimal numbers with no spaces: west,south,east,north.
 AREA_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$")
 
 
 def validate_area(area: str) -> str:
+    """[AI] Return `area` unchanged if it is 'world' or a valid bounding box; otherwise raise a 422.
+
+    [AI] Checked here, before calling FIRMS, so a malformed area does not spend a FIRMS transaction.
+    Boxes crossing the antimeridian (west > east) are rejected.
+    """
     if area == "world":
         return area
     if not AREA_PATTERN.fullmatch(area):
@@ -48,6 +59,7 @@ def get_fires(
         description="Optional start date (YYYY-MM-DD); defaults to the most recent data.",
     ),
 ) -> ApiResponse[FireQueryResult]:
+    """[AI] Fetch the detections and return them with the query parameters echoed back."""
     area = validate_area(area)
     try:
         rows = fetch_hotspots(source, area, days, date_from.isoformat() if date_from else None)

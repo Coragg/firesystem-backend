@@ -1,0 +1,53 @@
+info:
+  name: hotspots export
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{HOST}}/api/v1/hotspots/export"
+  body:
+    type: json
+    data: |-
+      {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [[[-73.2, -37.9], [-71.5, -37.9], [-71.5, -36.5], [-73.2, -36.5], [-73.2, -37.9]]]
+        },
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-10",
+        "separator": ";"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Download the hotspots of an area as CSV
+
+  Streams every detection in the area and range as a CSV file, with no day limit. In Bruno, use the download icon of the response to save it.
+
+  ## Body
+
+  - `aoi` (required): GeoJSON `Polygon`, as in `calendar`.
+  - `start_date`, `end_date` (required): `YYYY-MM-DD`.
+  - `separator` (optional): `","` (default) or `";"`. Use `";"` for Excel in Spanish.
+
+  ## Response
+
+  `text/csv` with `Content-Disposition: attachment; filename="hotspots.csv"`. The file starts with a UTF-8 BOM so Excel shows accents correctly. Columns: `id`, `acq_time_utc`, `solar_date`, `lat`, `lon`, `satellite`, `instrument`, `confidence`, `frp`, `source`, `excluded`.
+
+  ## What to expect
+
+  - Before any load: only the header line.
+  - If the database fails halfway, the last line of the file is `# EXPORT_INCOMPLETE request_id=...`. Check for it before trusting a download.
+
+  ## Errors
+
+  - `413` `{"detail": "... over the 1000000 limit..."}` when the export would exceed 1,000,000 rows; narrow the area or the dates.
+  - `422` with a `detail` list for an invalid body.
+  - `503` when Supabase cannot be reached.

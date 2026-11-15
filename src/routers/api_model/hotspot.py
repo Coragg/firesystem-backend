@@ -1,3 +1,9 @@
+"""[AI] `GET /api/v1/hotspot/forecast`: XGBoost hotspot probability for one 500 m pixel and month.
+
+[AI] The model files come from `src/notebooks/XGBoost_Hotspot_Forecast.ipynb`; the logic lives in
+`src/utils/hotspot_model.py`. This router only maps settings and errors to HTTP.
+"""
+
 from datetime import date
 from pathlib import Path
 
@@ -23,10 +29,15 @@ def feature_source() -> hm.FeatureSource:
 
 
 def model_bundle() -> hm.ModelBundle:
+    """[AI] Return the trained model and its metadata, loaded once per directory and then cached.
+
+    [AI] The path is resolved to an absolute string so the cache key does not depend on the working directory.
+    """
     return hm.cached_bundle(str(Path(config.HOTSPOT_MODEL_DIR).resolve()))
 
 
 def json_value(value: object) -> float | int | None:
+    """[AI] Make a feature value JSON-safe: NaN becomes None and numpy scalars become Python numbers."""
     if value is None or (isinstance(value, float) and np.isnan(value)):
         return None
     return value.item() if hasattr(value, "item") else value
@@ -48,6 +59,11 @@ def get_hotspot_forecast(
     lat: float = Query(ge=-90, le=90, description="Latitude in decimal degrees."),
     lon: float = Query(ge=-180, le=180, description="Longitude in decimal degrees."),
 ) -> ApiResponse[HotspotForecast]:
+    """[AI] Snap the point to the model grid, build the features, and return the probability.
+
+    [AI] Error mapping: missing model files or bad settings -> 503 (the server is not ready);
+    point outside the trained area or no input data -> 422; feature data API down -> 502.
+    """
     try:
         bundle = model_bundle()
     except FileNotFoundError as exc:
@@ -57,7 +73,7 @@ def get_hotspot_forecast(
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    month = date_.replace(day=1)
+    month = date_.replace(day=1)  # [AI] the model works per month, so any day selects its month
     try:
         pixel_lat, pixel_lon = hm.snap_to_pixel(bundle, lat, lon)
         features = hm.build_features(bundle, source, pixel_lat, pixel_lon, month)
