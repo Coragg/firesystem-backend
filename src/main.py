@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-from fastapi import FastAPI
-from src.models.response import ApiResponse
-from src.routers.api_model import hotspot
-from src.routers.api_nasa import fires, health, quota, sources
-from src.utils.pyproject_variables import name, version, description
-=======
 import csv
 import io
 import logging
@@ -13,7 +6,6 @@ from datetime import UTC, date, datetime, timedelta
 from time import perf_counter
 from typing import Annotated
 from uuid import uuid4
->>>>>>> feature/dev-1
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +20,9 @@ from src.models.response import ApiResponse, Meta
 from src.models.source import (
     CalibrationInfo, Coverage, HealthData, ProductInfo, SatelliteInfo, SourcesData, Validation,
 )
+# [AI] Merge resolution: the forecast router import came from feature/model_training; the other
+# HEAD-side imports were already in feature/dev-1's list below.
+from src.routers.api_model import hotspot
 from src.routers.api_nasa import fires, health, quota, sources
 from src.utils import db
 from src.utils.coverage import AREAS, intersects_coverage

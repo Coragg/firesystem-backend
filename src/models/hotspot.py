@@ -1,7 +1,19 @@
-<<<<<<< HEAD
-from pydantic import BaseModel, Field
+"""[AI] Models of the hotspot endpoints: the XGBoost forecast (`/api/v1/hotspot/forecast`) and the map /
+export of stored detections (`/api/v1/hotspots`, `/api/v1/hotspots/export`).
+
+[AI] Merge resolution: feature/model_training and feature/dev-1 each added different models to this
+file; both sets are kept unchanged, under one shared import block.
+"""
+
+from datetime import date, datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from src.models.aoi import PolygonAoi
 
 
+# [AI] Forecast models (from feature/model_training)
 class HotspotModelInfo(BaseModel):
     region: str = Field(description="Region the model was trained on.")
     trained_months: list[str] = Field(description="First and last month (YYYY-MM) of the training rows.")
@@ -18,14 +30,9 @@ class HotspotForecast(BaseModel):
     hotspot_score: float = Field(description="Raw model output on the training sample scale (1 hotspot : 11 no-hotspot rows); use for ranking only.")
     features: dict[str, float | int | None] = Field(description="Feature values the model received.")
     model: HotspotModelInfo
-=======
-from datetime import date, datetime
-from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.models.aoi import PolygonAoi
-
+# [AI] Stored-detection models (from feature/dev-1)
 CONFIDENCE_NAMES = {0: "low", 1: "nominal", 2: "high"}
 
 
@@ -79,4 +86,3 @@ def hotspot_from_row(row: dict) -> Hotspot:
         confidence=CONFIDENCE_NAMES[row["confidence_level"]], frp=row["frp"],
         provisional=row["source_kind"] == "NRT", excluded=row["excluded"],
     )
->>>>>>> feature/dev-1
