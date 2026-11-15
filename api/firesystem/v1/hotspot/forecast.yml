@@ -5,10 +5,10 @@ info:
 
 http:
   method: GET
-  url: "{{HOST}}/api/v1/hotspot/forecast"
+  url: "{{HOST}}/api/v1/hotspot/forecast?date=2027-01-15&lat=-35.4&lon=-71.6"
   params:
     - name: date
-      value: "2027-01-15"
+      value: 2027-01-15
       type: query
       description: Any day of the month to forecast, YYYY-MM-DD.
     - name: lat
