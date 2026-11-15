@@ -137,3 +137,66 @@ def slope_degrees(elevation: np.ndarray, lat: np.ndarray, lon: np.ndarray) -> np
     dx = np.abs(np.diff(lon).mean()) * metres_per_deg * np.cos(np.deg2rad(lat))[:, None]
     grad_y, grad_x = np.gradient(elevation, axis=(0, 1))
     return np.degrees(np.arctan(np.hypot(grad_x / dx, grad_y / dy))).astype("float32")
+
+
+def time_blocks(da: xr.DataArray, default: int = 32):
+    """Yield (first index, values) for consecutive blocks of dates, following the array's dask time chunks.
+
+    NetCDF files store several dates per compressed block, so reading one date at a time decompresses each
+    block once per date; reading a whole block of dates at once decompresses it once.
+    """
+    n = da.sizes["time"]
+    sizes = da.chunksizes.get("time") if da.chunks is not None else None
+    sizes = sizes or [default] * (n // default) + ([n % default] if n % default else [])
+    start = 0
+    for size in sizes:
+        yield start, da.isel(time=slice(start, start + size)).values
+        start += size
+
+
+def monthly_mean(ds: xr.Dataset, var: str, months: pd.DatetimeIndex) -> xr.DataArray:
+    """Return the per-pixel mean of `var` over the composites starting in each month (NaN if none valid).
+
+    Reads one stored block of composites at a time (see `time_blocks`), so memory stays near one block
+    plus the (month, lat, lon) result.
+    """
+    months = pd.DatetimeIndex(months).to_period("M").to_timestamp()
+    position = {m: i for i, m in enumerate(months)}
+    shape = (len(months), ds.sizes["lat"], ds.sizes["lon"])
+    total = np.zeros(shape, dtype="float64")
+    count = np.zeros(shape, dtype="int32")
+    composite_months = pd.DatetimeIndex(ds["time"].values).to_period("M").to_timestamp()
+    for start, block in time_blocks(ds[var]):
+        for k, values in enumerate(block):
+            month = composite_months[start + k]
+            if month not in position:
+                continue
+            ok = np.isfinite(values)
+            total[position[month]][ok] += values[ok]
+            count[position[month]] += ok
+    with np.errstate(invalid="ignore", divide="ignore"):
+        mean = np.where(count > 0, total / count, np.nan).astype("float32")
+    return xr.DataArray(mean, dims=("month", "lat", "lon"),
+                        coords={"month": months, "lat": ds["lat"].values, "lon": ds["lon"].values}, name=var)
+
+
+def terrain_on_grid(terrain: xr.Dataset, lat: np.ndarray, lon: np.ndarray) -> xr.Dataset:
+    """Average the fine DEM layers (elevation_m, slope_deg) over each cell of a coarser (lat, lon) grid.
+
+    Each DEM cell goes to the grid cell whose centre is nearest (within half a grid cell); voids are
+    ignored and cells without any DEM value are NaN.
+    """
+    lat_idx = pd.Index(lat).get_indexer(terrain["lat"].values, method="nearest", tolerance=np.abs(np.diff(lat)).mean() / 2 * 1.01)
+    lon_idx = pd.Index(lon).get_indexer(terrain["lon"].values, method="nearest", tolerance=np.abs(np.diff(lon)).mean() / 2 * 1.01)
+    rows, cols = np.meshgrid(lat_idx, lon_idx, indexing="ij")
+    out = {}
+    for var in ("elevation_m", "slope_deg"):
+        values = terrain[var].values
+        ok = (rows >= 0) & (cols >= 0) & np.isfinite(values)
+        total = np.zeros((len(lat), len(lon)))
+        count = np.zeros((len(lat), len(lon)))
+        np.add.at(total, (rows[ok], cols[ok]), values[ok])
+        np.add.at(count, (rows[ok], cols[ok]), 1)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out[var] = (("lat", "lon"), np.where(count > 0, total / count, np.nan).astype("float32"))
+    return xr.Dataset(out, coords={"lat": lat, "lon": lon})

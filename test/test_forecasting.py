@@ -185,7 +185,7 @@ def test_chronological_split_orders_seasons():
 
 def test_classification_metrics_handles_single_class():
     good = fc.classification_metrics(np.array([0, 1, 0, 1]), np.array([0.1, 0.9, 0.2, 0.8]))
-    assert good["roc_auc"] == 1 and good["average_precision"] == 1 and good["burn_share"] == 0.5
+    assert good["roc_auc"] == 1 and good["average_precision"] == 1 and good["positive_share"] == 0.5
     single = fc.classification_metrics(np.array([0, 0]), np.array([0.1, 0.2]))
     assert np.isnan(single["roc_auc"]) and np.isfinite(single["log_loss"])
 

@@ -70,12 +70,13 @@ def monthly_burn_history(ds: xr.Dataset, region: BaseGeometry | None = None) -> 
     full = pd.date_range(months.min(), months.max(), freq="MS")
     values = np.full((len(full), ds.sizes["lat"], ds.sizes["lon"]), np.nan, dtype="float32")
     position = {m: i for i, m in enumerate(full)}
-    for t, month in enumerate(months):
-        doy = burn_doy.isel(time=t).values
-        slice_ = np.where(doy > 0, 1.0, np.where(doy == 0, 0.0, np.nan))  # -1 fill, -2 water -> NaN
-        slice_[~mask] = np.nan
-        current = values[position[month]]
-        values[position[month]] = np.where(np.isnan(current), slice_, np.fmax(current, slice_))
+    for start, block in gl.time_blocks(burn_doy):
+        for k, doy in enumerate(block):
+            month = months[start + k]
+            slice_ = np.where(doy > 0, 1.0, np.where(doy == 0, 0.0, np.nan))  # -1 fill, -2 water -> NaN
+            slice_[~mask] = np.nan
+            current = values[position[month]]
+            values[position[month]] = np.where(np.isnan(current), slice_, np.fmax(current, slice_))
     return xr.DataArray(
         values, dims=("month", "lat", "lon"),
         coords={"month": full, "lat": ds["lat"].values, "lon": ds["lon"].values}, name="burned",
@@ -372,7 +373,7 @@ def classification_metrics(y: np.ndarray, p: np.ndarray) -> dict[str, float]:
     both = len(np.unique(y)) == 2
     return {
         "rows": len(y),
-        "burn_share": float(y.mean()) if len(y) else np.nan,
+        "positive_share": float(y.mean()) if len(y) else np.nan,
         "roc_auc": roc_auc_score(y, p) if both else np.nan,
         "average_precision": average_precision_score(y, p) if both else np.nan,
         "log_loss": log_loss(y, p, labels=[0, 1]) if len(y) else np.nan,

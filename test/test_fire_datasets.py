@@ -652,3 +652,15 @@ def test_build_regional_monthly_series_has_every_month(two_regions):
     assert (series.loc[series.month == 9, "MODIS_veg_age_days"] == 3).all()
     assert series["date"].dt.day.eq(1).all()
     assert series.attrs["description"]["update_frequency"].startswith("Monthly")
+
+
+def test_open_product_decodes_appeears_julian_label_as_standard_dates(tmp_path):
+
+    # AppEEARS writes: seconds since 2000-01-01, calendar "julian"; the values are standard dates
+    seconds = (pd.to_datetime(["2012-03-01", "2012-04-01"]) - pd.Timestamp("2000-01-01")).total_seconds().astype("int32")
+    ds = xr.Dataset({"Burn_Date": (("time", "lat", "lon"), np.zeros((2, 1, 1), "int16"))},
+                    coords={"time": ("time", seconds, {"units": "seconds since 2000-01-01 00:00:00+00:00", "calendar": "julian"}),
+                            "lat": [-35.0], "lon": [-71.0]})
+    ds.to_netcdf(tmp_path / "MCD64A1.061_500m_aid0001.nc", engine="h5netcdf")
+    opened = fd.open_product("MCD64A1.061", tmp_path)
+    assert list(pd.DatetimeIndex(opened["time"].values)) == list(pd.to_datetime(["2012-03-01", "2012-04-01"]))

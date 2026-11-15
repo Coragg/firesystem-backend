@@ -75,3 +75,28 @@ def test_open_elevation_masks_voids_and_computes_slope(tmp_path):
 
 def test_slope_degrees_flat_is_zero():
     assert np.all(gl.slope_degrees(np.full((3, 3), 50.0), np.array([-35.0, -35.01, -35.02]), np.array([-71.0, -70.99, -70.98])) == 0)
+
+
+def test_terrain_on_grid_averages_fine_cells_per_coarse_cell():
+    import xarray as xr
+
+    fine_lat = np.array([-35.00, -35.01, -35.02, -35.03])
+    fine_lon = np.array([-71.00, -70.99, -70.98, -70.97])
+    elevation = np.array([[0, 10, 100, 100], [20, 30, 100, np.nan], [5, 5, 50, 50], [5, 5, 50, 50]], dtype=float)
+    terrain = xr.Dataset({"elevation_m": (("lat", "lon"), elevation), "slope_deg": (("lat", "lon"), elevation / 10)},
+                         coords={"lat": fine_lat, "lon": fine_lon})
+    coarse = gl.terrain_on_grid(terrain, np.array([-35.005, -35.025, -40.0]), np.array([-70.995, -70.975]))
+    assert coarse["elevation_m"].values[:2].tolist() == [[15.0, 100.0], [5.0, 50.0]]   # NaN void ignored
+    assert coarse["slope_deg"].values[0, 0] == 1.5
+    assert np.isnan(coarse["elevation_m"].values[2]).all()                          # no DEM cells there
+
+
+def test_time_blocks_follow_dask_chunks_and_cover_every_date():
+    import xarray as xr
+
+    da = xr.DataArray(np.arange(10 * 2 * 2).reshape(10, 2, 2), dims=("time", "lat", "lon"))
+    plain = [(start, block.shape[0]) for start, block in gl.time_blocks(da, default=4)]
+    assert plain == [(0, 4), (4, 4), (8, 2)]
+    chunked = list(gl.time_blocks(da.chunk({"time": 3})))
+    assert [(start, block.shape[0]) for start, block in chunked] == [(0, 3), (3, 3), (6, 3), (9, 1)]
+    assert np.array_equal(np.concatenate([b for _, b in chunked]), da.values)

@@ -1,0 +1,44 @@
+info:
+  name: forecast
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{HOST}}/api/v1/hotspot/forecast"
+  params:
+    - name: date
+      value: "2027-01-15"
+      type: query
+      description: Any day of the month to forecast, YYYY-MM-DD.
+    - name: lat
+      value: "-35.4"
+      type: query
+      description: Latitude in decimal degrees, inside the region the model was trained on.
+    - name: lon
+      value: "-71.6"
+      type: query
+      description: Longitude in decimal degrees, inside the region the model was trained on.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Hotspot forecast for a pixel and month
+
+  Runs the XGBoost hotspot model for the 500 m pixel containing `lat`, `lon` and the month containing `date`.
+
+  ## Query parameters
+
+  - `date` is required (YYYY-MM-DD); only its month is used.
+  - `lat` and `lon` are required and must fall inside the model's region (currently Maule).
+
+  ## Response
+
+  `{success, data}` with `month`, the requested and pixel-centre coordinates, `hotspot_probability` (estimated chance of at least one FIRMS vegetation-fire hotspot in the pixel that month), `hotspot_score` (raw model output, for ranking), the `features` the model received, and `model` (region, training months, feature names).
+
+  Errors: 422 for a point outside the region or a pixel/month without leaf area data, 502 when a data API fails, 503 when the model files or data source are not configured.

@@ -163,12 +163,30 @@ def get_layer(ds: xr.Dataset, layer: str) -> xr.DataArray:
     return ds[matches[0]]
 
 
-def open_product(product: str, directory: str | Path) -> xr.Dataset:
-    """Open all downloaded NetCDF files of one AppEEARS product."""
+def decode_appeears_times(ds: xr.Dataset) -> xr.Dataset:
+    """Decode `time` as standard (Gregorian) dates.
+
+    AppEEARS NetCDF files label time as `calendar: julian`, but the values (seconds since 2000-01-01) are
+    standard dates: read as Gregorian they fall exactly on each product's composite starts (1 Jan for
+    MCD12Q1, the 1st of each month for MCD64A1, the 16-day starts for MOD13A1). Decoding them as a real
+    Julian calendar would shift every date by 13 days and needs the cftime package.
+    """
+    if "time" in ds.variables and ds["time"].attrs.get("calendar", "").lower() == "julian":
+        ds["time"].attrs["calendar"] = "standard"
+    return xr.decode_cf(ds)
+
+
+def open_product(product: str, directory: str | Path, chunks: dict | None = None) -> xr.Dataset:
+    """Open all downloaded NetCDF files of one AppEEARS product (times decoded as standard dates).
+
+    chunks: e.g. {"time": 1} when the data is read one date at a time (otherwise each file is one block,
+    so every single-date read decompresses the whole file).
+    """
     paths = sorted(Path(directory).glob(f"{product}*.nc"))
     if not paths:
         raise FileNotFoundError(f"No NetCDF files for {product} in {directory}")
-    return xr.open_mfdataset(paths, engine="h5netcdf")
+    return xr.open_mfdataset(paths, engine="h5netcdf", decode_times=False, preprocess=decode_appeears_times,
+                             chunks=chunks if chunks is not None else {})
 
 
 def check_grid_in_bbox(ds: xr.Dataset, bbox: BBox, product: str) -> None:
